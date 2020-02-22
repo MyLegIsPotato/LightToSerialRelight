@@ -1,0 +1,5 @@
+﻿<settings-container>
+  <bool-setting text='LightOut' value='boolEnable'></bool-setting>
+  <dropdown-list-setting text='Port' value='list-choice' choices='list-options' />
+  <dropdown-list-setting text='Baudrate' value='baud-choice' choices='baud-options' />
+</settings-container>
