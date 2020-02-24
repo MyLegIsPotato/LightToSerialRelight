@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO.Ports;
+using TMPro;
 
 namespace LightOut
 {
@@ -40,8 +41,6 @@ namespace LightOut
             set => config.SetInt("LightOut", nameof(baudChoice), value);
         }
 
-
-        //[UIAction("click-btn-action")]
         [UIAction("#apply")]
         public void OpenConnection()
         {
@@ -62,6 +61,26 @@ namespace LightOut
                 Logger.log.Notice("Connecting succesful.");
                 arduinoPort.Write("r");
                 arduinoPort.Write("#");
+            }
+        }
+
+
+
+        //MODAL
+
+        [UIComponent("modified-text")]
+        private TextMeshProUGUI modifiedText;
+
+        [UIAction("refresh-btn-action")]
+        private void RefreshStatus()
+        {
+            if (Settings.instance.arduinoPort.IsOpen)
+            {
+                modifiedText.text = "Connection with arduino has been established.";
+            }
+            else
+            {
+                modifiedText.text = "There was some error connecting to arduino.";
             }
         }
 

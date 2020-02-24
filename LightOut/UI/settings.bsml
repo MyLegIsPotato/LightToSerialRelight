@@ -1,5 +1,22 @@
-﻿<settings-container>
-  <bool-setting text='LightOut' value='boolEnable'></bool-setting>
-  <dropdown-list-setting text='Port' value='list-choice' choices='list-options' />
-  <dropdown-list-setting text='Baudrate' value='baud-choice' choices='baud-options' />
-</settings-container>
+﻿<bg>
+  <modal show-event='show-status' hide-event='close-status' size-delta-x='100' size-delta-y='50' click-off-closes='true'>
+    <vertical child-control-height='false'>
+      <horizontal bg='panel-top' pad-left='10' pad-right='10' horizontal-fit='PreferredSize'>
+        <text text='yeet saber' align='Center' font-size='8'></text>
+      </horizontal>
+      <horizontal bg='round-rect-panel' pad='5'>
+        <text id='modified-text' text="..." font-size='5.5' align='Center'/>
+      </horizontal>
+      <horizontal>
+        <button text='Refresh' on-click='refresh-btn-action'/>
+        <button text='Close' click-event='close-status'/>
+      </horizontal>
+    </vertical>
+  </modal>
+  <settings-container>
+    <bool-setting text='LightOut' value='boolEnable'></bool-setting>
+    <dropdown-list-setting text='Port' value='list-choice' choices='list-options' />
+    <dropdown-list-setting text='Baudrate' value='baud-choice' choices='baud-options' />
+    <button text='Status' click-event='show-status'/>
+  </settings-container>
+</bg>

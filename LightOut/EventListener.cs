@@ -45,11 +45,10 @@ namespace LightOut
             greenRight = Mathf.RoundToInt(C2.g * 255);
             blueRight = Mathf.RoundToInt(C2.b * 255);
 
-            BPM = (int)BMD.beatsPerMinute;
+            BPM = (int)BMD.beatsPerMinute; //Not used, may come useful in future
 
             //Logger.log.Info(" BPM = " + BPM.ToString());
 
-            //Ensure that there is no excessive data trying to be send.
             if (Settings.instance.arduinoPort.IsOpen)
             {
                 Logger.log.Info("Sending Color to arduino...");
@@ -63,7 +62,7 @@ namespace LightOut
             Logger.log.Info("Removing Eventlistener");
         }
 
-        int lastEventNumber;
+        int lastEventNumber = 0;
 
         void EventHappened(BeatmapEventData Data)
         {
