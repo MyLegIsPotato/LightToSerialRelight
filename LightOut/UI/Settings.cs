@@ -42,12 +42,23 @@ namespace LightOut
         }
 
         [UIAction("#apply")]
+        public void UpdateConnection()
+        {
+            if (_isModEnabled)
+            {
+                OpenConnection();
+            }
+            else
+            {
+                CloseConnection();
+            }
+        }
         public void OpenConnection()
         {
             Logger.log.Info("Connecting...");
-            arduinoPort = new SerialPort(listChoice, baudChoice, Parity.None, 8);
             try
             {
+                arduinoPort = new SerialPort(listChoice, baudChoice, Parity.None, 8);
                 arduinoPort.Open();
                 if (arduinoPort.IsOpen) //PUT ARDUINO INTO STANDBY MODE
                 {
@@ -58,6 +69,7 @@ namespace LightOut
             }
             catch (Exception e)
             {
+                CloseConnection();
                 Logger.log.Error("Connecting failed.");
                 Logger.log.Error(e);
             }

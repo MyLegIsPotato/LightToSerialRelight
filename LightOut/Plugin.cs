@@ -56,23 +56,23 @@ namespace LightOut
         void IBeatSaberPlugin.OnSceneLoaded(Scene scene, LoadSceneMode sceneMode)
         {
             Logger.log.Info("Loaded Scene: " + scene.name);
-            if (scene.name == "MenuCore" || scene.name == "GameCore")
+            if (scene.name == "MenuCore")
             {
-                if (!harmonyPatchesLoaded && Settings.instance._isModEnabled)
+                if (!Settings.arduinoPort.IsOpen && Settings.instance._isModEnabled)
                 {
-                    Logger.log.Info("LightsOut is ENABLED!");
-                    if(!Settings.arduinoPort.IsOpen && Settings.instance._isModEnabled)
-                    {
-                        Settings.instance.OpenConnection();
-                    }
-                    if (Settings.arduinoPort.IsOpen)
-                    {
-                        BS_Utils.Utilities.BSEvents.gameSceneLoaded += AddEventListener;
-                    }
+                    Settings.instance.OpenConnection();
+                }else if (Settings.instance._isModEnabled)
+                {
+                    Settings.arduinoPort.Write("r");
+                    Settings.arduinoPort.Write("#");
                 }
-                if (harmonyPatchesLoaded && !Settings.instance._isModEnabled)
+            }
+
+            if(scene.name == "GameCore")
+            {
+                if (Settings.instance._isModEnabled && Settings.arduinoPort.IsOpen)
                 {
-                    Logger.log.Info("LightsOut is DISABLED!");
+                    BS_Utils.Utilities.BSEvents.gameSceneLoaded += AddEventListener;
                 }
             }
         }
