@@ -61,7 +61,10 @@ namespace LightOut
                 if (!harmonyPatchesLoaded && Settings.instance._isModEnabled)
                 {
                     Logger.log.Info("LightsOut is ENABLED!");
-                    Settings.instance.OpenConnection();
+                    if(!Settings.arduinoPort.IsOpen && Settings.instance._isModEnabled)
+                    {
+                        Settings.instance.OpenConnection();
+                    }
                     if (Settings.arduinoPort.IsOpen)
                     {
                         BS_Utils.Utilities.BSEvents.gameSceneLoaded += AddEventListener;
