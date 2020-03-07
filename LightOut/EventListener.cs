@@ -153,7 +153,7 @@ namespace LightOut
             colorsByte[6] = Convert.ToByte(s_b);
             colorsByte[7] = Convert.ToByte('%');
 
-            foreach (var x in colorsByte)
+            for(int x = 0; x < colorsByte.Length; x++)
             {
                 try
                 {

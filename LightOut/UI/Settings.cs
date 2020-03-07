@@ -11,14 +11,15 @@ namespace LightOut
     class Settings : PersistentSingleton<Settings>
     {
         public static Config config;
-        public static SerialPort arduinoPort;
+        public static SerialPort arduinoPort = null;
         public static Settings settings;
+
 
         [UIValue("boolEnable")]
         public bool _isModEnabled
         {
-            get => config.GetBool("LightOut", nameof(_isModEnabled), true, true);
-            set => config.SetBool("LightOut", nameof(_isModEnabled), value);
+            get => config.GetBool("LightOut", "_isModEnabled", true, true);
+            set => config.SetBool("LightOut", "_isModEnabled", value);
         }
 
         [UIValue("list-options")]
@@ -44,28 +45,37 @@ namespace LightOut
         [UIAction("#apply")]
         public void UpdateConnection()
         {
-            if (_isModEnabled)
-            {
-                OpenConnection();
-            }
-            else
-            {
-                CloseConnection();
-            }
+            OpenConnection();
         }
         public void OpenConnection()
         {
-            Logger.log.Info("Connecting...");
-            try
+            if(arduinoPort != null) //is instantiated
+            {
+                if (arduinoPort.IsOpen)
+                {
+                    CloseConnection();
+                    OpenConnection();
+                    Connect();
+                }
+            }
+            else
             {
                 arduinoPort = new SerialPort(listChoice, baudChoice, Parity.None, 8);
+                Connect();
+            }
+        }
+
+        public void Connect()
+        {
+            try
+            {
                 arduinoPort.Open();
-                if (arduinoPort.IsOpen) //PUT ARDUINO INTO STANDBY MODE
-                {
-                    Logger.log.Notice("Connecting succesful.");
-                    arduinoPort.Write("r");
-                    arduinoPort.Write("#");
-                }
+                Logger.log.Notice("Connecting succesful.");
+                byte[] x = new byte[1] { 69 };
+                arduinoPort.Write(x, 0, 1);
+                int incomingByte = arduinoPort.ReadByte();
+                arduinoPort.Write("r");
+                arduinoPort.Write("#");
             }
             catch (Exception e)
             {
@@ -73,7 +83,6 @@ namespace LightOut
                 Logger.log.Error("Connecting failed.");
                 Logger.log.Error(e);
             }
-
         }
 
         //MODAL
@@ -100,22 +109,24 @@ namespace LightOut
         }
         public void CloseConnection()
         {
-            if (arduinoPort.IsOpen)
+            if(arduinoPort != null)
             {
-                Logger.log.Notice("Disconnecting...");
-                try
+                if (arduinoPort.IsOpen)
                 {
-                    arduinoPort.Write("@");
-                    arduinoPort.Close();
-                    Logger.log.Notice("Disconnecting succesful.");
-                }
-                catch (Exception e)
-                {
-                    throw e;
-                }
+                    Logger.log.Notice("Disconnecting...");
+                    try
+                    {
+                        arduinoPort.Write("@");
+                        arduinoPort.Close();
+                        Logger.log.Notice("Disconnecting succesful.");
+                    }
+                    catch (Exception e)
+                    {
+                        throw e;
+                    }
 
+                }
             }
-
         }
     }
 }
