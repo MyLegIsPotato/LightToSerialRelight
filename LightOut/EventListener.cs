@@ -73,7 +73,7 @@ namespace LightOut
             int value = Data.value;
             Int32.TryParse(Data.type.ToString().Replace("Event", ""), out Event);
             Logger.log.Debug(Data.time.ToString());
-            if (value < 2000000000)
+            if (value < 2000000000 && Settings.arduinoPort.IsOpen)
             {
                 if(lastEventNumber != value && Data.time > (lastEventTime + maxArduinoDelay*0.001)) //Make sure to never send same signal twice AND do not oversend, otherwise arduino will display beats too late.
                 {
