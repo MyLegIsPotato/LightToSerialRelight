@@ -4,6 +4,8 @@ A Beat Saber mod that allows you to control your Arduino LED Strip based on Beat
 This mod is **updated version** of the mod created by [D3rPole](https://github.com/D3rPole/BS-LightToSerial).
 It allows you to communicate with Arduino based on events to display preset animations and patterns on your wb2812 adressable LED strip. The mod automatically gets custom colors from Beat Saber and makes them fully saturated before reaching arduino, it may be the reason if some colors on LED strip get displayed incorrectly. Most of the times it works as intended.
 
+[Gameplay](https://www.youtube.com/watch?v=9OCgU-t3w0Y)
+
 ## Mod installation
 Just download the .dll file and drop it into your BeatSaber folder/Plugins.
 
