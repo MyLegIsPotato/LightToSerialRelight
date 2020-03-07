@@ -24,9 +24,9 @@ namespace LightOut
 
         internal static bool harmonyPatchesLoaded = false;
         internal static HarmonyInstance harmonyInstance = HarmonyInstance.Create("com.mylegispotato.BeatSaber.LightOut");
-
-
         internal static bool gameCoreJustLoaded = false;
+
+        bool eventListenerInstantiated = false;
 
         public void Init(IPALogger logger)
         {
@@ -68,7 +68,7 @@ namespace LightOut
             //    }
             //}
 
-            if(scene.name == "GameCore")
+            if(scene.name == "MenuCore")
             {
                 if (Settings.instance._isModEnabled && Settings.arduinoPort.IsOpen)
                 {
