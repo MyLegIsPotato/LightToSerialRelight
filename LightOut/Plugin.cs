@@ -20,7 +20,7 @@ namespace LightOut
     public class Plugin : IBeatSaberPlugin
     {
         public string Name => "LightSerialOutput";
-        public string Version => "1.7.2";
+        public string Version => "1.7.3";
 
         internal static bool harmonyPatchesLoaded = false;
         internal static HarmonyInstance harmonyInstance = HarmonyInstance.Create("com.mylegispotato.BeatSaber.LightOut");
@@ -35,14 +35,7 @@ namespace LightOut
 
         void IBeatSaberPlugin.OnApplicationStart()
         {
-            if (Settings.instance._isModEnabled)
-            {
-                Settings.instance.OpenConnection();
-                if (Settings.instance.arduinoPort.IsOpen)
-                {
-                    BS_Utils.Utilities.BSEvents.gameSceneLoaded += AddEventListener;
-                }
-            }
+
         }
 
         void IBeatSaberPlugin.OnApplicationQuit()
@@ -68,6 +61,11 @@ namespace LightOut
                 if (!harmonyPatchesLoaded && Settings.instance._isModEnabled)
                 {
                     Logger.log.Info("LightsOut is ENABLED!");
+                    Settings.instance.OpenConnection();
+                    if (Settings.arduinoPort.IsOpen)
+                    {
+                        BS_Utils.Utilities.BSEvents.gameSceneLoaded += AddEventListener;
+                    }
                 }
                 if (harmonyPatchesLoaded && !Settings.instance._isModEnabled)
                 {

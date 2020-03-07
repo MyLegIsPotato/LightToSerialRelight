@@ -49,17 +49,20 @@ namespace LightOut
 
             //Logger.log.Info(" BPM = " + BPM.ToString());
 
-            if (Settings.instance.arduinoPort.IsOpen)
+            if (Settings.arduinoPort.IsOpen)
             {
                 Logger.log.Info("Sending Color to arduino...");
-                SendColorToArduino(Settings.instance.arduinoPort);
+                SendColorToArduino(Settings.arduinoPort);
             }
         }
 
         void OnDestroy()
         {
-            Settings.instance.arduinoPort.Write("#");
-            Logger.log.Info("Removing Eventlistener");
+            if (Settings.arduinoPort.IsOpen)
+            {
+                Settings.arduinoPort.Write("#");
+                Logger.log.Info("Removing Eventlistener");
+            }
         }
 
         int lastEventNumber = 0;
@@ -77,28 +80,28 @@ namespace LightOut
                     switch (value)
                     {
                         case 0:
-                            Settings.instance.arduinoPort.Write("p"); //Turn Off
+                            Settings.arduinoPort.Write("p"); //Turn Off
                             break;
                         case 1:
-                            Settings.instance.arduinoPort.Write("q"); //RightTurnOn
+                            Settings.arduinoPort.Write("q"); //RightTurnOn
                             break;
                         case 2:
-                            Settings.instance.arduinoPort.Write("w"); //RightFlashAndLeaveOn
+                            Settings.arduinoPort.Write("w"); //RightFlashAndLeaveOn
                             break;
                         case 3:
-                            Settings.instance.arduinoPort.Write("e"); //RightFlashAndTurnOff
+                            Settings.arduinoPort.Write("e"); //RightFlashAndTurnOff
                             break;
                         case 5:
-                            Settings.instance.arduinoPort.Write("r"); //LeftTurnOn
+                            Settings.arduinoPort.Write("r"); //LeftTurnOn
                             break;
                         case 6:
-                            Settings.instance.arduinoPort.Write("t"); //LeftFlashAndLeaveOn
+                            Settings.arduinoPort.Write("t"); //LeftFlashAndLeaveOn
                             break;
                         case 7:
-                            Settings.instance.arduinoPort.Write("y"); //LeftFlashAndTurnOff
+                            Settings.arduinoPort.Write("y"); //LeftFlashAndTurnOff
                             break;
                         default:
-                            Settings.instance.arduinoPort.Write("p"); //Turn off on error
+                            Settings.arduinoPort.Write("p"); //Turn off on error
                             break;
                     }
                     //Logger.log.Info("Event happended: " + value);

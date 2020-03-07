@@ -155,7 +155,7 @@ void loop() {
     input = Serial.read();
     char inputChar = input;
     //Serial.println(inputChar);
-    // $ and % are color identifiers, recieving it tells arduino to use incoming bytes as color data, not as a command. Only use first $ and then % otherwise it won't send data correctly.
+    
     if(inputChar == '$'){ //Start
       enableShowing = false;
     }
@@ -170,9 +170,6 @@ void loop() {
       SetupBSPalettes();
       BRIGHTNESS = 255;
       enableShowing = true;
-//      for(int e=0; e < 6; e++){
-//        Serial.println(colorData[e]);
-//      }
     }
 
     if(!enableShowing){

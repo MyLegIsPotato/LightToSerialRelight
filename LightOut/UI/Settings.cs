@@ -11,7 +11,7 @@ namespace LightOut
     class Settings : PersistentSingleton<Settings>
     {
         public static Config config;
-        public SerialPort arduinoPort;
+        public static SerialPort arduinoPort;
         public static Settings settings;
 
         [UIValue("boolEnable")]
@@ -49,6 +49,12 @@ namespace LightOut
             try
             {
                 arduinoPort.Open();
+                if (arduinoPort.IsOpen) //PUT ARDUINO INTO STANDBY MODE
+                {
+                    Logger.log.Notice("Connecting succesful.");
+                    arduinoPort.Write("r");
+                    arduinoPort.Write("#");
+                }
             }
             catch (Exception e)
             {
@@ -56,15 +62,7 @@ namespace LightOut
                 Logger.log.Error(e);
             }
 
-            if (arduinoPort.IsOpen) //PUT ARDUINO INTO STANDBY MODE
-            {
-                Logger.log.Notice("Connecting succesful.");
-                arduinoPort.Write("r");
-                arduinoPort.Write("#");
-            }
         }
-
-
 
         //MODAL
 
@@ -74,7 +72,7 @@ namespace LightOut
         [UIAction("refresh-btn-action")]
         private void RefreshStatus()
         {
-            if (Settings.instance.arduinoPort.IsOpen)
+            if (arduinoPort.IsOpen)
             {
                 modifiedText.text = "Connection with arduino has been established.";
             }

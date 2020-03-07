@@ -2,7 +2,7 @@
   <modal show-event='show-status' hide-event='close-status' size-delta-x='100' size-delta-y='50' click-off-closes='true'>
     <vertical child-control-height='false'>
       <horizontal bg='panel-top' pad-left='10' pad-right='10' horizontal-fit='PreferredSize'>
-        <text text='yeet saber' align='Center' font-size='8'></text>
+        <text text='Status' align='Center' font-size='8'></text>
       </horizontal>
       <horizontal bg='round-rect-panel' pad='5'>
         <text id='modified-text' text="..." font-size='5.5' align='Center'/>
