@@ -70,10 +70,11 @@ namespace LightOut
             try
             {
                 arduinoPort.Open();
-                Logger.log.Notice("Connecting succesful.");
+                arduinoPort.ReadTimeout = 3000;
                 byte[] x = new byte[1] { 69 };
                 arduinoPort.Write(x, 0, 1);
                 int incomingByte = arduinoPort.ReadByte();
+                Logger.log.Notice("Connecting succesful.");
                 arduinoPort.Write("r");
                 arduinoPort.Write("#");
             }

@@ -155,6 +155,9 @@ void loop() {
     input = Serial.read();
     char inputChar = input;
     //Serial.println(inputChar);
+    if(inputChar == 69){
+      Serial.write('a');
+    }
     
     if(inputChar == '$'){ //Start
       enableShowing = false;
