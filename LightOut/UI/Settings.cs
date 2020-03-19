@@ -42,6 +42,13 @@ namespace LightOut
             set => config.SetInt("LightOut", nameof(baudChoice), value);
         }
 
+        [UIValue("rainbowMode")]
+        public bool rainbowMode
+        {
+            get => config.GetBool("LightOut", "rainbowMode", true, true);
+            set => config.SetBool("LightOut", "rainbowMode", value);
+        }
+
         [UIAction("#apply")]
         public void UpdateConnection()
         {

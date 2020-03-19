@@ -52,7 +52,15 @@ namespace LightOut
             if (Settings.arduinoPort.IsOpen)
             {
                 Logger.log.Info("Sending Color to arduino...");
-                SendColorToArduino(Settings.arduinoPort);
+                if (Settings.instance.rainbowMode)
+                {
+                    StartRainbowMode(Settings.arduinoPort);
+                }
+                else
+                {
+                    SendColorToArduino(Settings.arduinoPort);
+                }
+
             }
         }
 
@@ -77,6 +85,10 @@ namespace LightOut
                 if(lastEventNumber != value && Data.time > (lastEventTime + maxArduinoDelay*0.001)) //Make sure to never send same signal twice AND do not oversend, otherwise arduino will display beats too late.
                 {
                     Logger.log.Info("Event happened: " + value.ToString());
+                    if (Settings.instance.rainbowMode)
+                    {
+                        Settings.arduinoPort.Write("^");
+                    }
                     switch (value)
                     {
                         case 0:
@@ -89,7 +101,8 @@ namespace LightOut
                             Settings.arduinoPort.Write("w"); //RightFlashAndLeaveOn
                             break;
                         case 3:
-                            Settings.arduinoPort.Write("e"); //RightFlashAndTurnOff
+                            Settings.arduinoPort.Write("e");
+                            Settings.arduinoPort.Write("p"); //RightFlashAndTurnOff
                             break;
                         case 5:
                             Settings.arduinoPort.Write("r"); //LeftTurnOn
@@ -98,7 +111,8 @@ namespace LightOut
                             Settings.arduinoPort.Write("t"); //LeftFlashAndLeaveOn
                             break;
                         case 7:
-                            Settings.arduinoPort.Write("y"); //LeftFlashAndTurnOff
+                            Settings.arduinoPort.Write("y");
+                            Settings.arduinoPort.Write("p"); //LeftFlashAndTurnOff
                             break;
                         default:
                             Settings.arduinoPort.Write("p"); //Turn off on error
@@ -108,6 +122,10 @@ namespace LightOut
                     lastEventTime = Data.time;
                 }
             }
+        }
+        private void StartRainbowMode(SerialPort port)
+        {
+            port.Write(new char[] { '^' }, 0, 1); //Starts rainbow mode
         }
 
         void SendColorToArduino(SerialPort port)
