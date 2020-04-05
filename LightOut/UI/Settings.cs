@@ -1,10 +1,12 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
 using BS_Utils.Utilities;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO.Ports;
 using TMPro;
+using UnityEngine;
 
 namespace LightOut
 {
@@ -13,7 +15,6 @@ namespace LightOut
         public static Config config;
         public static SerialPort arduinoPort = null;
         public static Settings settings;
-
 
         [UIValue("boolEnable")]
         public bool _isModEnabled
@@ -42,6 +43,16 @@ namespace LightOut
             set => config.SetInt("LightOut", nameof(baudChoice), value);
         }
 
+        [UIValue("event-options")]
+        private List<object> events = new object[] {"noteCuts", "lightEvents"}.ToList<object>();
+
+        [UIValue("event-choice")]
+        public string eventChoice
+        {
+            get => config.GetString("LightOut", "eventChoice", "");
+            set => config.SetString("LightOut", "eventChoice", value);
+        }
+
         [UIValue("rainbowMode")]
         public bool rainbowMode
         {
@@ -52,45 +63,75 @@ namespace LightOut
         [UIAction("#apply")]
         public void UpdateConnection()
         {
-            OpenConnection();
+            if (_isModEnabled)
+            {
+                OpenConnection();
+            }
+            else
+            {
+                if (arduinoPort != null && arduinoPort.IsOpen)
+                {
+                    CloseConnection();
+                }
+            }
+
+            Plugin.thisPlugin.BSEvents_menuSceneLoaded();
         }
         public void OpenConnection()
         {
             if(arduinoPort != null) //is instantiated
             {
-                if (arduinoPort.IsOpen)
+                CloseConnection();
+                if (!arduinoPort.IsOpen)
                 {
-                    CloseConnection();
-                    OpenConnection();
-                    Connect();
+                    StartCoroutine(Connect());
                 }
             }
             else
             {
                 arduinoPort = new SerialPort(listChoice, baudChoice, Parity.None, 8);
-                Connect();
+                StartCoroutine(Connect());
             }
         }
 
-        public void Connect()
+        public IEnumerator Connect()
         {
+            bool portIsOpen = false;
+            int incomingByte = 0;
+
             try
             {
                 arduinoPort.Open();
                 arduinoPort.ReadTimeout = 3000;
-                byte[] x = new byte[1] { 69 };
-                arduinoPort.Write(x, 0, 1);
-                int incomingByte = arduinoPort.ReadByte();
-                Logger.log.Notice("Connecting succesful.");
-                arduinoPort.Write("r");
-                arduinoPort.Write("#");
+                Plugin.log.Notice("Port opened successfully.");
+                portIsOpen = true;
             }
             catch (Exception e)
             {
                 CloseConnection();
-                Logger.log.Error("Connecting failed.");
-                Logger.log.Error(e);
+                Plugin.log.Error("Couldn't open the port, check connection and settings.");
+                Plugin.log.Error(e);
+                portIsOpen = false;
             }
+
+            if (portIsOpen)
+            {
+                char[] x = new char[1] {'-'};
+                arduinoPort.Write(x, 0, 1);
+                yield return new WaitForSeconds(3);
+                incomingByte = arduinoPort.ReadByte();
+                if (incomingByte == (int)'a')
+                {
+                    Plugin.log.Notice("Connection established.");
+                    arduinoPort.Write("r");
+                    arduinoPort.Write("#");
+                }
+                else
+                {
+                    Plugin.log.Error("There was some error in two-way communication.");
+                }
+            }
+            yield return null;
         }
 
         //MODAL
@@ -121,12 +162,12 @@ namespace LightOut
             {
                 if (arduinoPort.IsOpen)
                 {
-                    Logger.log.Notice("Disconnecting...");
+                    Plugin.log.Notice("Disconnecting...");
                     try
                     {
                         arduinoPort.Write("@");
                         arduinoPort.Close();
-                        Logger.log.Notice("Disconnecting succesful.");
+                        Plugin.log.Notice("Disconnecting succesful.");
                     }
                     catch (Exception e)
                     {

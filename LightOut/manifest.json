@@ -1,15 +1,19 @@
 ﻿{
-  "$schema": "https://raw.githubusercontent.com/nike4613/ModSaber-MetadataFileSchema/master/Schema.json",
-  "author": "mylegispotato",
-  "license": "MIT",
-  "description": "Sends serial data on COM port to control arduino LED strip.",
-  "gameVersion": "1.7.0",
-  "id": "LightOut",
-  "name": "LightOut",
-  "version": "1.7.1",
-  "dependsOn": {
-    "BeatSaberMarkupLanguage": "^1.1.3.0",
-    "BS Utils": "^1.4.1.0"
+  "author": "Mylegispotato",
+  "description": [
+    "Arduino LED event-based controller"
+  ],
+  "gameVersion": "1.8.0",
+  "id": null,
+  "name": "LightToSerialRelight",
+  "version": "1.8.1",
+  "features": [
+  ],
+  "links": {
+    "project-home": "https://github.com/MyLegIsPotato/LightToSerialRelight",
+    "project-source": "https://github.com/MyLegIsPotato/LightToSerialRelight",
   },
-  "features": []
+  "misc": {
+  "plugin-hint": "LightOut.Plugin"
+  }
 }

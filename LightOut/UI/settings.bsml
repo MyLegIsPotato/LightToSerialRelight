@@ -18,6 +18,7 @@
     <dropdown-list-setting text='Port' value='list-choice' choices='list-options' />
     <dropdown-list-setting text='Baudrate' value='baud-choice' choices='baud-options' />
     <bool-setting text='Rainbow Mode' value='rainbowMode'></bool-setting>
+    <dropdown-list-setting text='Event' value='event-choice' choices='event-options' />
     <button text='Status' click-event='show-status'/>
   </settings-container>
 </bg>

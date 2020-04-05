@@ -156,7 +156,7 @@ void loop() {
     input = Serial.read();
     char inputChar = input;
     //Serial.println(inputChar);
-    if (inputChar == 69) {
+    if (inputChar == '-') {
       Serial.write('a');
     }
 

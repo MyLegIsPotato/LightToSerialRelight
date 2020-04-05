@@ -15,6 +15,7 @@ namespace LightOut
         private BeatmapObjectCallbackController Ec;
         private ColorManager Cm;
         private BeatmapLevelSO BMD;
+        BeatmapObjectManager _spawnController;
         private int BPM;
         private Color C1;
         private Color C2;
@@ -28,13 +29,30 @@ namespace LightOut
         float maxArduinoDelay = 15; //Time in miliseconds in which arduino goes through one read cycle. You can calculate your own time by
         // printing char each cycle -> going into serial monitor (Arduino IDE) -> enabling timestamps => Subtract earlier time from newer time.
 
+        bool right = true;
+
         void Awake()
         {
-            Logger.log.Notice("Initializing..");
+            _spawnController = GameObject.FindObjectOfType<BeatmapObjectManager>();
+
+            Plugin.log.Notice("Initializing..");
+            Plugin.log.Notice(Settings.instance.eventChoice);
+
             Ec = Resources.FindObjectsOfTypeAll<BeatmapObjectCallbackController>().FirstOrDefault();
             Cm = Resources.FindObjectsOfTypeAll<ColorManager>().LastOrDefault();
             BMD = Resources.FindObjectsOfTypeAll<BeatmapLevelSO>().FirstOrDefault();
-            Ec.beatmapEventDidTriggerEvent += EventHappened;
+
+            if (Settings.instance.eventChoice == "noteCuts")
+            {
+                Plugin.log.Info("Adding event listner to noteCuts");
+                _spawnController.noteWasCutEvent += OnNoteCut;  //Flash on note cuts
+            }
+            
+            if (Settings.instance.eventChoice == "lightEvents")
+            {
+                Plugin.log.Info("Adding event listner to lightEvents");
+                Ec.beatmapEventDidTriggerEvent += EventHappened; //Flash on map's light events
+            }
 
             C1 = Cm.ColorForNoteType(NoteType.NoteB);
             redLeft = Mathf.RoundToInt(C1.r * 255);
@@ -47,17 +65,17 @@ namespace LightOut
 
             BPM = (int)BMD.beatsPerMinute; //Not used, may come useful in future
 
-            //Logger.log.Info(" BPM = " + BPM.ToString());
+            //Plugin.log.Info(" BPM = " + BPM.ToString());
 
             if (Settings.arduinoPort.IsOpen)
             {
-                Logger.log.Info("Sending Color to arduino...");
                 if (Settings.instance.rainbowMode)
                 {
                     StartRainbowMode(Settings.arduinoPort);
                 }
                 else
                 {
+                    Plugin.log.Info("Sending Color to arduino...");
                     SendColorToArduino(Settings.arduinoPort);
                 }
 
@@ -69,7 +87,7 @@ namespace LightOut
             if (Settings.arduinoPort.IsOpen)
             {
                 Settings.arduinoPort.Write("#");
-                Logger.log.Info("Removing Eventlistener");
+                Plugin.log.Info("Removing Eventlistener");
             }
         }
 
@@ -84,7 +102,7 @@ namespace LightOut
             {
                 if(lastEventNumber != value && Data.time > (lastEventTime + maxArduinoDelay*0.001)) //Make sure to never send same signal twice AND do not oversend, otherwise arduino will display beats too late.
                 {
-                    Logger.log.Info("Event happened: " + value.ToString());
+                    Plugin.log.Info("Event happened: " + value.ToString());
                     if (Settings.instance.rainbowMode)
                     {
                         Settings.arduinoPort.Write("^");
@@ -123,6 +141,27 @@ namespace LightOut
                 }
             }
         }
+        
+        private void OnNoteCut(INoteController spawnController, NoteCutInfo info)
+        {
+            Plugin.log.Notice("Note Cut Event!");
+            if (Settings.instance.rainbowMode)
+            {
+                Settings.arduinoPort.Write("^");
+            }
+
+            if (right)
+            {
+                Settings.arduinoPort.Write("q"); //RightTurnOn
+                right = !right;
+            }
+            else
+            {
+                Settings.arduinoPort.Write("r"); //LeftTurnOn
+                right = !right;
+            }
+        }
+
         private void StartRainbowMode(SerialPort port)
         {
             port.Write(new char[] { '^' }, 0, 1); //Starts rainbow mode
@@ -130,8 +169,8 @@ namespace LightOut
 
         void SendColorToArduino(SerialPort port)
         {
-            Logger.log.Debug("Before color boost: " + redLeft + " " + greenLeft + " " + blueLeft);
-            Logger.log.Debug("Before color boost: " + redRight + " " + greenRight + " " + blueRight);
+            Plugin.log.Debug("Before color boost: " + redLeft + " " + greenLeft + " " + blueLeft);
+            Plugin.log.Debug("Before color boost: " + redRight + " " + greenRight + " " + blueRight);
 
             int r1, g1, b1;
             int r2, g2, b2;
@@ -142,14 +181,14 @@ namespace LightOut
             double h1 = colorLeft.GetHue();
             double h2 = colorRight.GetHue();
 
-            Logger.log.Debug("double h1 = " + h1);
-            Logger.log.Debug("double h2 = " + h2);
+            Plugin.log.Debug("double h1 = " + h1);
+            Plugin.log.Debug("double h2 = " + h2);
 
             HsvToRgb(h1, 1, 1, out r1, out g1, out b1);
             HsvToRgb(h2, 1, 1, out r2, out g2, out b2);
 
-            Logger.log.Debug("After color boost: " + r1 +" "+ g1 +" "+ b1);
-            Logger.log.Debug("After color boost: " + r2 + " " + g2 + " " + b2);
+            Plugin.log.Debug("After color boost: " + r1 +" "+ g1 +" "+ b1);
+            Plugin.log.Debug("After color boost: " + r2 + " " + g2 + " " + b2);
 
             Color rightColor = new Color(r1,g1,b1);
             Color leftColor = new Color(r2, g2, b2);
@@ -175,11 +214,11 @@ namespace LightOut
             {
                 try
                 {
-                    Logger.log.Info("Writing: " + colorsByte[x]);
+                    Plugin.log.Info("Writing: " + colorsByte[x]);
                 }
                 catch (Exception e)
                 {
-                    Logger.log.Error(e);
+                    Plugin.log.Error(e);
                 }
 
             }

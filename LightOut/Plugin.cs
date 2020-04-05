@@ -8,7 +8,6 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Reflection;
 using BeatSaberMarkupLanguage.Settings;
-using Harmony;
 using IPA;
 using IPALogger = IPA.Logging.Logger;
 using System.IO.Ports;
@@ -17,79 +16,54 @@ using BS_Utils.Utilities;
 
 namespace LightOut
 {
-    public class Plugin : IBeatSaberPlugin
+    [Plugin(RuntimeOptions.DynamicInit)]
+    public class Plugin
     {
-        public string Name => "LightSerialOutput";
-        public string Version => "1.7.3";
+        public string Name => "LightToSerialRelight";
+        public string Version => "1.8.1";
 
-        internal static bool harmonyPatchesLoaded = false;
-        internal static HarmonyInstance harmonyInstance = HarmonyInstance.Create("com.mylegispotato.BeatSaber.LightOut");
         internal static bool gameCoreJustLoaded = false;
+        public static IPA.Logging.Logger log;
+        public bool eventAdded = false;
+        public static Plugin thisPlugin;
 
-        bool eventListenerInstantiated = false;
-
-        public void Init(IPALogger logger)
+        [Init]
+        public Plugin(IPA.Logging.Logger logger)
         {
-            Logger.log = logger;
+            log = logger;
+            log.Info("Initialized LightToSerialRelight");
+            thisPlugin = this;
         }
 
-        void IBeatSaberPlugin.OnApplicationStart()
+        [OnStart]
+        public void OnStart()
         {
+            log.Info("Starting LightToSerialRelight");
+            BSEvents.menuSceneLoaded += BSEvents_menuSceneLoaded;
+            BSMLSettings.instance.AddSettingsMenu("LightOut", "LightOut.UI.settings.bsml", Settings.instance);
+        }
+
+        public void BSEvents_menuSceneLoaded()
+        {
+           Plugin.log.Info("Loaded Menu");
+           if (Settings.instance._isModEnabled && Settings.arduinoPort.IsOpen && !eventAdded) //Only happens once per game restart if mod is always enabled.
+           {
+                log.Info("Adding event for gameSceneLoaded.  Level Event Listener will be spawned when starting a level.");
+                BS_Utils.Utilities.BSEvents.gameSceneLoaded += AddEventListener;
+                eventAdded = true;
+           }else if(eventAdded && (!Settings.instance._isModEnabled || !Settings.arduinoPort.IsOpen))
+            {
+                log.Info("Removing event for gameSceneLoaded. Level Event Listener won't be spawned anymore.");
+                BS_Utils.Utilities.BSEvents.gameSceneLoaded -= AddEventListener;
+                eventAdded = false;
+           }
 
         }
 
-        void IBeatSaberPlugin.OnApplicationQuit()
+        [OnExit]
+        public void OnExit()
         {
             Settings.instance.CloseConnection();
-        }
-
-        void IBeatSaberPlugin.OnUpdate()
-        {
-
-        }
-
-        void IBeatSaberPlugin.OnFixedUpdate()
-        {
-
-        }
-
-        void IBeatSaberPlugin.OnSceneLoaded(Scene scene, LoadSceneMode sceneMode)
-        {
-            Logger.log.Info("Loaded Scene: " + scene.name);
-            //if (scene.name == "MenuCore")
-            //{
-            //    if (!Settings.arduinoPort.IsOpen && Settings.instance._isModEnabled)
-            //    {
-            //        Settings.instance.OpenConnection();
-            //    }else if (Settings.instance._isModEnabled)
-            //    {
-            //        Settings.arduinoPort.Write("r");
-            //        Settings.arduinoPort.Write("#");
-            //    }
-            //}
-
-            if(scene.name == "MenuCore")
-            {
-                if (Settings.instance._isModEnabled && Settings.arduinoPort.IsOpen)
-                {
-                    BS_Utils.Utilities.BSEvents.gameSceneLoaded += AddEventListener;
-                }
-            }
-        }
-
-        void IBeatSaberPlugin.OnSceneUnloaded(Scene scene)
-        {
-
-        }
-
-        void IBeatSaberPlugin.OnActiveSceneChanged(Scene prevScene, Scene nextScene)
-        { 
-            if (nextScene.name == "MenuViewControllers")
-            {
-                Logger.log.Info("Loading Settings.");
-                BSMLSettings.instance.AddSettingsMenu("LightOut", "LightOut.UI.settings.bsml", Settings.instance);
-            }
-
         }
 
         void AddEventListener()
