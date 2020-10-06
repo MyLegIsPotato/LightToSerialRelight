@@ -1,16 +1,16 @@
 #include <FastLED.h>
 
 #define LED_PIN     9
-#define NUM_LEDS    120
+#define NUM_LEDS    205
 int SelectedBRIGHTNESS = 120;
-int BRIGHTNESS = 120;
-int BRIGHTNESS_MAX = 128;
+int BRIGHTNESS = 121;
+int BRIGHTNESS_MAX = 255;
 int BRIGHTNESS_MIN = 1;
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
 CRGB leds[NUM_LEDS];
 
-int UPDATES_PER_SECOND = 100;
+int UPDATES_PER_SECOND = 120;
 CRGBPalette16 currentPalette;
 TBlendType    currentBlending;
 
@@ -18,13 +18,21 @@ CRGBPalette16 primaryColorPalette = CRGBPalette16(CRGB::Blue);
 CRGBPalette16 secondaryColorPalette = CRGBPalette16(CRGB::Red);
 CRGBPalette16 mixedColorPalette;
 CRGBPalette16 mixedSpacedColorPalette;
+CRGBPalette16 receivedPalette;
 
 extern CRGBPalette16 myRedWhiteBluePalette;
 extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
 
-const int buttonOnePin = 5;     // the number of the pushbutton pin
+const int buttonOnePin = 2;     // the number of the pushbutton pin
 const int buttonTwoPin = 3;     // the number of the pushbutton pin
 const int buttonThreePin = 4;     // the number of the pushbutton pin
+const int microphonePin = 11;     // the number of the pushbutton pin
+
+//Control LEDs pins:
+const int paletteSelectionPin = 8;
+const int useMicSelectionPin = 12;
+const int brightnessSelectionPin = 11;
+const int listenIndicatorPin = 10;
 
 int buttonOne = 0;         // variable for reading the pushbutton status
 int buttonTwo = 0;
@@ -51,14 +59,20 @@ bool ignorePalettes = false;
 
 uint8_t input;
 uint8_t timer = 0;
+uint8_t bassTimer = 0;
 
 bool receivingColorData = false;
+bool receivingAnimationData = false;
 bool enableShowing = true;
 bool rainbowMode = false;
 byte colorData[6];
+byte byteBuffer[3];
 
 CRGB primaryColor = CRGB::Blue;
 CRGB secondaryColor = CRGB::Red;
+CRGB newColor2 = CRGB::Red;
+
+char inputChar;
 
 void IncreaseAnimationSpeedIndex(bool increase) {
   int newIndex;
@@ -70,6 +84,12 @@ void IncreaseAnimationSpeedIndex(bool increase) {
 
   if (newIndex > 0 && newIndex < sizeof(speedsArray)) {
     animationSpeedIndex = newIndex;
+  }
+}
+
+void ClearBuffer() {
+  for (int i; i < 64; i++) {
+    int trash = Serial.read();
   }
 }
 
@@ -88,15 +108,66 @@ void setup() {
   pinMode(buttonTwoPin, INPUT);
   pinMode(buttonThreePin, INPUT);
 
+  pinMode(paletteSelectionPin, OUTPUT);
+  pinMode(useMicSelectionPin, OUTPUT);
+  pinMode(brightnessSelectionPin, OUTPUT);
+  pinMode(listenIndicatorPin, OUTPUT);
+
   Serial.begin(1200);
   FastLED.setMaxRefreshRate(120);
+  //Serial.println(newColor2.r);
 }
+
+bool bass = true;
+bool useMic = true;
 
 void loop() {
   // read the state of the pushbutton value:
   buttonOne = digitalRead(buttonOnePin);
   buttonTwo = digitalRead(buttonTwoPin);
   buttonThree = digitalRead(buttonThreePin);
+
+  if (useMic) {
+    digitalWrite(listenIndicatorPin, HIGH);
+  } else {
+    digitalWrite(listenIndicatorPin, LOW);
+  }
+
+  //Set the output of control LEDs:
+  switch (menuNum) {
+    case 0:
+      digitalWrite(paletteSelectionPin, HIGH);
+      digitalWrite(useMicSelectionPin, LOW);
+      digitalWrite(brightnessSelectionPin, LOW);
+      break;
+    case 1:
+      digitalWrite(paletteSelectionPin, LOW);
+      digitalWrite(useMicSelectionPin, HIGH);
+      digitalWrite(brightnessSelectionPin, LOW);
+      break;
+    case 2:
+      digitalWrite(paletteSelectionPin, LOW);
+      digitalWrite(useMicSelectionPin, LOW);
+      digitalWrite(brightnessSelectionPin, HIGH);
+      break;
+    default:
+      break;
+  }
+
+
+  if (useMic && (analogRead(A3) < 30) && bassTimer > 6) {
+    int newColInt = random(0, 26);
+    int newAnimInt = random(0, 3);
+    while (newColInt == menuPos) {
+      newColInt = random(0, 8);
+    }
+    menuPos = newColInt;
+    currentAnimation = newAnimInt;
+    bass = !bass;
+    bassTimer = 0;
+  }
+  bassTimer++;
+
   FastLED.setBrightness(BRIGHTNESS);
   // check if the pushbutton is pressed. If it is, the buttonState is HIGH:
   if (buttonOne == HIGH || buttonTwo == HIGH || buttonThree == HIGH ) {
@@ -110,11 +181,12 @@ void loop() {
   //////////////////////////////////////////
   //------------BUTTON CONTROL------------// //This is for premade palettes to control using digital pins on arduino.
   //////////////////////////////////////////
-  if (buttonOne == HIGH && !buttonOnePressed && menuPos <= 12) {
+  if (buttonOne == HIGH && !buttonOnePressed && menuPos <= 25) {
     if (menuNum == 0) {
       menuPos++;
     } else if (menuNum == 1) {
-      IncreaseAnimationSpeedIndex(true);
+      //IncreaseAnimationSpeedIndex(true);
+      useMic = true;
     } else if (menuNum == 2) {
       SelectedBRIGHTNESS = SelectedBRIGHTNESS * 2;
     };
@@ -138,7 +210,9 @@ void loop() {
     if (menuNum == 0) {
       menuPos--;
     } else if (menuNum == 1) {
-      IncreaseAnimationSpeedIndex(false);
+      useMic = false;
+      menuPos = 1;
+      currentAnimation = 0;
     } else if (menuNum == 2) {
       SelectedBRIGHTNESS = SelectedBRIGHTNESS / 2;
     };
@@ -152,25 +226,20 @@ void loop() {
   //////////////////////////////////////////
   //Check for serial each n cycles (does not miss any bytes, they are just waiting in buffer for next n-th cycle)
   //n --------v
-  if (timer > 2) {
+  if (timer > 20) {
     input = Serial.read();
-    char inputChar = input;
+    inputChar = input;
     //Serial.println(inputChar);
-    if (inputChar == '-') {
+
+    CheckForAnimationData();
+    CheckForStaticPalette();
+    CheckForRainbowMode();
+
+    if (inputChar == '-') { //Feedback byte for LED Controller and Beat Saber mod
       Serial.write('a');
     }
 
-    if (inputChar == '^') {
-      SetupBSPalettesRainbow();
-      rainbowMode = true;
-    }
-
-    if (inputChar == '$') { //Start
-      rainbowMode = false;
-      enableShowing = false;
-    }
-
-    if (inputChar == '%') { //End
+    if (inputChar == '%') { //End receiving Beat Saber colors
       primaryColor.r = colorData[0];
       primaryColor.g = colorData[1];
       primaryColor.b = colorData[2];
@@ -186,7 +255,7 @@ void loop() {
       Serial.readBytes(colorData, 6);
     }
 
-    if (!receivingColorData) {
+    if (!receivingColorData && !receivingAnimationData) {
       //These are arduino commands. They are single characters so arduino can process them instantly.
       //This is basically code for your PC to communicate with arduino, if you want you can just send ASCII bytes equivalents
       //Serial.println(inputChar); // <--- You can debug things here
@@ -204,7 +273,7 @@ void loop() {
         case 'x': currentAnimation = 1; break;
         case 'c': LoadDefaultSettings(); break; //reset
 
-        case '@': menuPos = 1; currentAnimation = 0; break; //Closes Connection and enables other effects.
+        case '@': menuPos = 1; currentAnimation = 0; ClearBuffer(); break; //Closes Connection and enables other effects.
 
         //BeatSaber mod palettes:
         case '#': menuPos = 20; break;
@@ -229,7 +298,7 @@ void loop() {
   //----------PALETTE SELECTION----------//
   /////////////////////////////////////////
   switch (menuPos) {
-    case 0: GeneratedPalette0(); currentAnimation = 0; break;
+    case 0: GeneratedPalette0(); break;
     case 1: GeneratedPalette1(); break;
     case 2: GeneratedPalette2(); break;
     case 3: Aqua(); break;
@@ -239,8 +308,21 @@ void loop() {
     case 7: GeneratedPalette6(); break;
     case 8: GeneratedPalette7(); break;
     case 9: GeneratedPalette0(); break;
+    case 10: StaticPalette(); break;
+    case 11: GeneratedPalette8(); break;
+    case 12: GeneratedPalette9(); break;
+    case 13: GeneratedPalette10(); break;
+    case 14: GeneratedPalette11(); break;
+    case 15: GeneratedPalette12(); break;
+    case 16: GeneratedPalette13(); break;
+    case 17: GeneratedPalette14(); break;
+    case 18: GeneratedPalette15(); break;
+    case 19: GeneratedPalette16(); break;
+    case 20: GeneratedPalette17(); break;
+    //case 11:
+    //case 12:
 
-    case 20: FullWhitePalletteWithEnds(); currentAnimation = 4; break;
+    //case 20: FullWhitePalletteWithEnds(); currentAnimation = 4; break;
     case 21: RightTurnOn(); currentAnimation = 0; break;
     case 22: LeftTurnOn(); currentAnimation = 0; break;
     case 23: RightFlashAndLeaveOn(); currentAnimation = 1; break;
@@ -265,6 +347,65 @@ void loop() {
 /////////////////////////////////////////
 //----------SYSTEM FUNCTIONS-----------//
 /////////////////////////////////////////
+
+void CheckForAnimationData() {
+  if (inputChar == '|') {
+    receivingAnimationData = true;
+    inputChar = Serial.read();
+    int animationNumber = inputChar - '0';
+    //Serial.print(animationNumber);
+    currentAnimation = animationNumber;
+  }
+  if (inputChar == '\\') {
+    receivingAnimationData = false;
+  }
+}
+
+void CheckForRainbowMode() {
+  if (inputChar == '^') {
+    SetupBSPalettesRainbow();
+    rainbowMode = true;
+  }
+
+  if (inputChar == '$') { //Start receiving Beat Saber colors
+    rainbowMode = false;
+    enableShowing = false;
+  }
+}
+
+void CheckForStaticPalette() {
+  if (inputChar == '+') {
+    receivingColorData = true;
+    for (int i = 0; i < 16; i++) {
+      Serial.readBytes(byteBuffer, 3);
+      CRGB newColor2;
+      newColor2.r = byteBuffer[0];
+      newColor2.g = byteBuffer[1];
+      newColor2.b = byteBuffer[2];
+      //Serial.println(newColor2.r);
+      receivedPalette[i] = newColor2;
+    }
+    delay(20);
+    input = Serial.read();
+    inputChar = input;
+    //Serial.println(inputChar);
+    if (inputChar == '1') {
+      currentBlending = LINEARBLEND;
+    } else {
+      currentBlending = NOBLEND;
+    }
+  }
+
+  if (receivingColorData) {
+    if (inputChar == '=') {
+      //Serial.println(inputChar);
+      receivingColorData = false;
+      menuPos = 10;
+      currentAnimation = 0;
+      ClearBuffer();
+    }
+  }
+}
 
 CRGB rainbowColorBank[16] = {CRGB::Red, CRGB::Blue, CRGB::Green, CRGB::Yellow,
                              CRGB::Chartreuse, CRGB::Crimson, CRGB::Cyan, CRGB::DarkMagenta,
@@ -365,10 +506,17 @@ void LoadDefaultSettings() {
 /////////////////////////////////////////
 
 ///////////////
+//LIVE CONTROL
+void StaticPalette() {
+  currentPalette = receivedPalette;
+}
+
+///////////////
 //GENERATED----
 void GeneratedPalette0() {
   Blackout();
 }
+
 void GeneratedPalette1() {
   CRGB slots[2];
 
@@ -688,6 +836,514 @@ void GeneratedPalette7() {
   currentPalette = CRGBPalette16(slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], slots[6], slots[7], slots[8], slots[9], slots[10], slots[11], slots[12], slots[13], slots[14], slots[15] );
 }
 
+
+void GeneratedPalette8() {
+  CRGB slots[9];
+
+  slots[0].r = 255;
+  slots[0].g = 0;
+  slots[0].b = 0;
+  slots[1].r = 255;
+  slots[1].g = 0;
+  slots[1].b = 0;
+  slots[2].r = 0;
+  slots[2].g = 0;
+  slots[2].b = 0;
+  slots[3].r = 0;
+  slots[3].g = 0;
+  slots[3].b = 0;
+  slots[4].r = 0;
+  slots[4].g = 0;
+  slots[4].b = 0;
+  slots[5].r = 255;
+  slots[5].g = 0;
+  slots[5].b = 0;
+  slots[6].r = 255;
+  slots[6].g = 0;
+  slots[6].b = 0;
+  slots[7].r = 0;
+  slots[7].g = 0;
+  slots[7].b = 0;
+  slots[8].r = 0;
+  slots[8].g = 0;
+  slots[8].b = 0;
+  slots[9].r = 0;
+  slots[9].g = 0;
+  slots[9].b = 0;
+  CRGB background;
+  background.r = 0;
+  background.g = 0;
+  background.b = 0;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette9() {
+  CRGB slots[15];
+
+  slots[0].r = 0;
+  slots[0].g = 255;
+  slots[0].b = 0;
+  slots[1].r = 255;
+  slots[1].g = 255;
+  slots[1].b = 0;
+  slots[2].r = 255;
+  slots[2].g = 255;
+  slots[2].b = 255;
+  slots[3].r = 255;
+  slots[3].g = 255;
+  slots[3].b = 0;
+  slots[4].r = 0;
+  slots[4].g = 255;
+  slots[4].b = 0;
+  slots[5].r = 255;
+  slots[5].g = 255;
+  slots[5].b = 0;
+  slots[6].r = 255;
+  slots[6].g = 255;
+  slots[6].b = 255;
+  slots[7].r = 255;
+  slots[7].g = 255;
+  slots[7].b = 0;
+  slots[8].r = 0;
+  slots[8].g = 255;
+  slots[8].b = 0;
+  slots[9].r = 255;
+  slots[9].g = 255;
+  slots[9].b = 0;
+  slots[10].r = 255;
+  slots[10].g = 255;
+  slots[10].b = 255;
+  slots[11].r = 255;
+  slots[11].g = 255;
+  slots[11].b = 0;
+  slots[12].r = 0;
+  slots[12].g = 255;
+  slots[12].b = 0;
+  slots[13].r = 255;
+  slots[13].g = 255;
+  slots[13].b = 0;
+  slots[14].r = 255;
+  slots[14].g = 255;
+  slots[14].b = 255;
+  slots[15].r = 255;
+  slots[15].g = 255;
+  slots[15].b = 0;
+  CRGB background;
+  background.r = 255;
+  background.g = 255;
+  background.b = 255;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette10() {
+  CRGB slots[15];
+
+  slots[0].r = 255;
+  slots[0].g = 0;
+  slots[0].b = 0;
+  slots[1].r = 128;
+  slots[1].g = 64;
+  slots[1].b = 64;
+  slots[2].r = 128;
+  slots[2].g = 0;
+  slots[2].b = 0;
+  slots[3].r = 64;
+  slots[3].g = 0;
+  slots[3].b = 0;
+  slots[4].r = 0;
+  slots[4].g = 0;
+  slots[4].b = 0;
+  slots[5].r = 0;
+  slots[5].g = 0;
+  slots[5].b = 0;
+  slots[6].r = 0;
+  slots[6].g = 0;
+  slots[6].b = 0;
+  slots[7].r = 0;
+  slots[7].g = 0;
+  slots[7].b = 0;
+  slots[8].r = 0;
+  slots[8].g = 0;
+  slots[8].b = 0;
+  slots[9].r = 0;
+  slots[9].g = 0;
+  slots[9].b = 0;
+  slots[10].r = 0;
+  slots[10].g = 0;
+  slots[10].b = 0;
+  slots[11].r = 0;
+  slots[11].g = 0;
+  slots[11].b = 0;
+  slots[12].r = 0;
+  slots[12].g = 0;
+  slots[12].b = 0;
+  slots[13].r = 64;
+  slots[13].g = 0;
+  slots[13].b = 0;
+  slots[14].r = 128;
+  slots[14].g = 0;
+  slots[14].b = 0;
+  slots[15].r = 255;
+  slots[15].g = 0;
+  slots[15].b = 0;
+  CRGB background;
+  background.r = 0;
+  background.g = 0;
+  background.b = 0;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette11() {
+  CRGB slots[15];
+
+  slots[0].r = 128;
+  slots[0].g = 0;
+  slots[0].b = 64;
+  slots[1].r = 255;
+  slots[1].g = 0;
+  slots[1].b = 128;
+  slots[2].r = 128;
+  slots[2].g = 0;
+  slots[2].b = 64;
+  slots[3].r = 255;
+  slots[3].g = 0;
+  slots[3].b = 128;
+  slots[4].r = 128;
+  slots[4].g = 0;
+  slots[4].b = 64;
+  slots[5].r = 255;
+  slots[5].g = 0;
+  slots[5].b = 128;
+  slots[6].r = 128;
+  slots[6].g = 0;
+  slots[6].b = 64;
+  slots[7].r = 255;
+  slots[7].g = 0;
+  slots[7].b = 128;
+  slots[8].r = 128;
+  slots[8].g = 0;
+  slots[8].b = 64;
+  slots[9].r = 255;
+  slots[9].g = 0;
+  slots[9].b = 128;
+  slots[10].r = 128;
+  slots[10].g = 0;
+  slots[10].b = 64;
+  slots[11].r = 255;
+  slots[11].g = 0;
+  slots[11].b = 128;
+  slots[12].r = 128;
+  slots[12].g = 0;
+  slots[12].b = 64;
+  slots[13].r = 255;
+  slots[13].g = 0;
+  slots[13].b = 128;
+  slots[14].r = 128;
+  slots[14].g = 0;
+  slots[14].b = 64;
+  slots[15].r = 255;
+  slots[15].g = 0;
+  slots[15].b = 128;
+  CRGB background;
+  background.r = 255;
+  background.g = 0;
+  background.b = 128;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette12() {
+  CRGB slots[8];
+
+  slots[0].r = 0;
+  slots[0].g = 0;
+  slots[0].b = 160;
+  slots[1].r = 0;
+  slots[1].g = 0;
+  slots[1].b = 255;
+  slots[2].r = 0;
+  slots[2].g = 0;
+  slots[2].b = 128;
+  slots[3].r = 128;
+  slots[3].g = 128;
+  slots[3].b = 255;
+  slots[4].r = 0;
+  slots[4].g = 128;
+  slots[4].b = 192;
+  slots[5].r = 128;
+  slots[5].g = 128;
+  slots[5].b = 192;
+  slots[6].r = 0;
+  slots[6].g = 255;
+  slots[6].b = 255;
+  slots[7].r = 128;
+  slots[7].g = 255;
+  slots[7].b = 255;
+  slots[8].r = 0;
+  slots[8].g = 64;
+  slots[8].b = 128;
+  CRGB background;
+  background.r = 0;
+  background.g = 0;
+  background.b = 0;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette13() {
+  CRGB slots[7];
+
+  slots[0].r = 64;
+  slots[0].g = 128;
+  slots[0].b = 128;
+  slots[1].r = 0;
+  slots[1].g = 128;
+  slots[1].b = 0;
+  slots[2].r = 0;
+  slots[2].g = 255;
+  slots[2].b = 0;
+  slots[3].r = 0;
+  slots[3].g = 128;
+  slots[3].b = 0;
+  slots[4].r = 64;
+  slots[4].g = 128;
+  slots[4].b = 128;
+  slots[5].r = 0;
+  slots[5].g = 128;
+  slots[5].b = 0;
+  slots[6].r = 0;
+  slots[6].g = 255;
+  slots[6].b = 0;
+  slots[7].r = 0;
+  slots[7].g = 128;
+  slots[7].b = 0;
+  CRGB background;
+  background.r = 64;
+  background.g = 128;
+  background.b = 128;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette14() {
+  CRGB slots[15];
+
+  slots[0].r = 255;
+  slots[0].g = 0;
+  slots[0].b = 0;
+  slots[1].r = 255;
+  slots[1].g = 0;
+  slots[1].b = 0;
+  slots[2].r = 255;
+  slots[2].g = 0;
+  slots[2].b = 0;
+  slots[3].r = 255;
+  slots[3].g = 128;
+  slots[3].b = 128;
+  slots[4].r = 255;
+  slots[4].g = 128;
+  slots[4].b = 128;
+  slots[5].r = 255;
+  slots[5].g = 128;
+  slots[5].b = 128;
+  slots[6].r = 255;
+  slots[6].g = 128;
+  slots[6].b = 192;
+  slots[7].r = 255;
+  slots[7].g = 128;
+  slots[7].b = 192;
+  slots[8].r = 255;
+  slots[8].g = 255;
+  slots[8].b = 255;
+  slots[9].r = 255;
+  slots[9].g = 255;
+  slots[9].b = 255;
+  slots[10].r = 255;
+  slots[10].g = 255;
+  slots[10].b = 255;
+  slots[11].r = 255;
+  slots[11].g = 255;
+  slots[11].b = 255;
+  slots[12].r = 255;
+  slots[12].g = 255;
+  slots[12].b = 255;
+  slots[13].r = 255;
+  slots[13].g = 255;
+  slots[13].b = 255;
+  slots[14].r = 255;
+  slots[14].g = 255;
+  slots[14].b = 255;
+  slots[15].r = 255;
+  slots[15].g = 255;
+  slots[15].b = 255;
+  CRGB background;
+  background.r = 255;
+  background.g = 255;
+  background.b = 255;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette15() {
+  CRGB slots[15];
+
+  slots[0].r = 0;
+  slots[0].g = 255;
+  slots[0].b = 0;
+  slots[1].r = 128;
+  slots[1].g = 255;
+  slots[1].b = 128;
+  slots[2].r = 0;
+  slots[2].g = 255;
+  slots[2].b = 128;
+  slots[3].r = 0;
+  slots[3].g = 255;
+  slots[3].b = 64;
+  slots[4].r = 0;
+  slots[4].g = 255;
+  slots[4].b = 128;
+  slots[5].r = 255;
+  slots[5].g = 255;
+  slots[5].b = 255;
+  slots[6].r = 255;
+  slots[6].g = 255;
+  slots[6].b = 255;
+  slots[7].r = 255;
+  slots[7].g = 255;
+  slots[7].b = 255;
+  slots[8].r = 255;
+  slots[8].g = 255;
+  slots[8].b = 255;
+  slots[9].r = 255;
+  slots[9].g = 255;
+  slots[9].b = 255;
+  slots[10].r = 255;
+  slots[10].g = 255;
+  slots[10].b = 255;
+  slots[11].r = 255;
+  slots[11].g = 255;
+  slots[11].b = 255;
+  slots[12].r = 128;
+  slots[12].g = 255;
+  slots[12].b = 128;
+  slots[13].r = 128;
+  slots[13].g = 255;
+  slots[13].b = 128;
+  slots[14].r = 0;
+  slots[14].g = 255;
+  slots[14].b = 0;
+  slots[15].r = 128;
+  slots[15].g = 255;
+  slots[15].b = 128;
+  CRGB background;
+  background.r = 0;
+  background.g = 0;
+  background.b = 0;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette16() {
+  CRGB slots[15];
+
+  slots[0].r = 255;
+  slots[0].g = 45;
+  slots[0].b = 45;
+  slots[1].r = 0;
+  slots[1].g = 0;
+  slots[1].b = 0;
+  slots[2].r = 242;
+  slots[2].g = 175;
+  slots[2].b = 19;
+  slots[3].r = 0;
+  slots[3].g = 0;
+  slots[3].b = 0;
+  slots[4].r = 116;
+  slots[4].g = 238;
+  slots[4].b = 57;
+  slots[5].r = 0;
+  slots[5].g = 0;
+  slots[5].b = 0;
+  slots[6].r = 77;
+  slots[6].g = 234;
+  slots[6].b = 187;
+  slots[7].r = 0;
+  slots[7].g = 0;
+  slots[7].b = 0;
+  slots[8].r = 64;
+  slots[8].g = 162;
+  slots[8].b = 234;
+  slots[9].r = 0;
+  slots[9].g = 0;
+  slots[9].b = 0;
+  slots[10].r = 56;
+  slots[10].g = 92;
+  slots[10].b = 235;
+  slots[11].r = 0;
+  slots[11].g = 0;
+  slots[11].b = 0;
+  slots[12].r = 146;
+  slots[12].g = 64;
+  slots[12].b = 236;
+  slots[13].r = 0;
+  slots[13].g = 0;
+  slots[13].b = 0;
+  slots[14].r = 226;
+  slots[14].g = 35;
+  slots[14].b = 193;
+  slots[15].r = 0;
+  slots[15].g = 0;
+  slots[15].b = 0;
+  CRGB background;
+  background.r = 0;
+  background.g = 0;
+  background.b = 0;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
+void GeneratedPalette17() {
+  CRGB slots[15];
+
+  slots[0].r = 255;
+  slots[0].g = 128;
+  slots[0].b = 0;
+  slots[1].r = 255;
+  slots[1].g = 128;
+  slots[1].b = 0;
+  slots[2].r = 255;
+  slots[2].g = 128;
+  slots[2].b = 0;
+  slots[3].r = 255;
+  slots[3].g = 128;
+  slots[3].b = 0;
+  slots[4].r = 0;
+  slots[4].g = 0;
+  slots[4].b = 0;
+  slots[5].r = 0;
+  slots[5].g = 0;
+  slots[5].b = 0;
+  slots[6].r = 0;
+  slots[6].g = 0;
+  slots[6].b = 0;
+  slots[7].r = 0;
+  slots[7].g = 0;
+  slots[7].b = 0;
+  slots[8].r = 255;
+  slots[8].g = 128;
+  slots[8].b = 0;
+  slots[9].r = 255;
+  slots[9].g = 128;
+  slots[9].b = 0;
+  slots[10].r = 255;
+  slots[10].g = 128;
+  slots[10].b = 0;
+  slots[11].r = 255;
+  slots[11].g = 128;
+  slots[11].b = 0;
+  slots[12].r = 0;
+  slots[12].g = 0;
+  slots[12].b = 0;
+  slots[13].r = 0;
+  slots[13].g = 0;
+  slots[13].b = 0;
+  slots[14].r = 0;
+  slots[14].g = 0;
+  slots[14].b = 0;
+  slots[15].r = 0;
+  slots[15].g = 0;
+  slots[15].b = 0;
+  CRGB background;
+  background.r = 0;
+  background.g = 0;
+  background.b = 0;
+  currentPalette = fillPalette(slots, currentPalette, background);
+}
 ///////////////
 //PREMADE-----
 void Blackout() {
@@ -889,8 +1545,9 @@ DEFINE_GRADIENT_PALETTE( heatmap2_gp ) {
   200, 0,  0,  0,
   250, 255, 255,  0,
 };
-
+///////////////////////////////////////////////
 /////////////// ANIMATIONS ////////////////////
+///////////////////////////////////////////////
 void AnimationSolid() {
   BRIGHTNESS = SelectedBRIGHTNESS;
   playAnimation = true;
@@ -924,7 +1581,6 @@ void AnimationSpots() {
     animationTimer -= (1 * speedsArray[animationSpeedIndex]);
     if (animationTimer < -128 || animationTimer > 128) {
       playAnimation = false;
-      Blackout();
       animationTimer = 0;
     }
   } else {
